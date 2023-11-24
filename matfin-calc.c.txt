@@ -1,0 +1,334 @@
+﻿#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+#include <ctype.h>
+#include <locale.h>
+// Autores: Carlos Henrique e Pedro Galhardo
+// Desenvolvido para matéria de Matemática Financeira do período 2023/1 da UFU - Monte Carmelo
+
+const char *PERIODOS_NOME[] = { "Dia", "Mês", "Bimestre", "Trimestre", "Quadrimestre", "", "Semestre", "", "", "", "", "", "Ano" };
+#define MODOS		"\nDigite [ 1 ] para Juros Simples, [ 2 ] para Juros Compostos, ou | 0 | para sair: "
+#define OPERACOES	"Escolha uma opção para calcular: \n 1. Valor Presente \n 2. Valor Futuro \n 3. Juros \n 4. Taxa \n 5. Tempo \n 6. Converter Periodo da Taxa \n 0. Sair \n ::> "
+#define OPERACOES2	"Escolha uma opção para calcular: \n 1. Valor Presente \n 2. Valor Futuro \n 3. Juros \n 4. Taxa \n 5. Tempo \n 6. Converter Periodo da Taxa \n 7. Calcular Taxa Efetiva \n 0. Sair \n ::> "
+#define PERIODOS	"\t :: [ d ] Dia | [ m ] Mês | [ b ] Bimestre | [ t ] Trimestre | [ q ] Quadrimestre | [ s ] Semestre | [ a ] Ano"
+#define MSG_VP		"Digite a Valor Inicial (VP) R$: "
+#define MSG_VF		"Digite o Valor Futuro (VF) R$: "
+#define MSG_I		"Digite a Taxa (i) em %: "
+#define MSG_N		"Digite o Tempo (n): "
+#define MSG_VP		"Digite a Valor Inicial (VP) R$: "
+#define MODELO_RES 	"\t:: %s : R$ %'.2f "
+
+double	calcularValorPresenteComposto(double vf, double i, double n);
+double	calcularValorFuturoComposto(double vp, double i, double n);
+double	calcularJurosCompostos(double vp, double i, double n);
+double	calcularTempoComposto(double vf, double vp, double i);
+double	calcularTaxaComposta(double vf, double vp, double n);
+double	converterTaxaComposta(double i, int periodoOrigem, int periodoDestino);
+void	menu();
+
+double	calcularValorPresenteSimples(double vf, double i, double n);
+double	calcularValorFuturoSimples(double vp, double i, double n);
+double	calcularJurosSimples(double vp, double i, double n);
+double	calcularTaxaSimples(double vf, double vp, double n);
+double	calcularTempoSimples(double vf, double vp, double i);
+double	converterTaxaSimples(double i, int periodoOrigem, int periodoDestino);
+
+void	prepararCalculoVP(int modo);
+void	prepararCalculoVF(int modo);
+void	prepararCalculoJuros(int modo);
+void	prepararCalculoTaxa(int modo);
+void	prepararCalculoTempo(int modo);
+void	prepararConversaoTaxa(int modo);
+void 	prepararCalculoEfetiva();
+
+int		escolherModo();
+int		escolherOperacao(int modo);
+double	pedirValor(char *msg);
+int		pedirPeriodo(char *msg);
+
+int main()
+{
+	setlocale(LC_NUMERIC, "pt_BR");
+	printf("\n:: Calculadora Financeira ::");
+	while (1)
+	{
+		menu();
+	}
+	return 0;
+}
+
+void menu()
+{
+	int modo = escolherModo();
+	int op = escolherOperacao(modo);
+	switch (op)
+	{
+	case 1:
+		prepararCalculoVP(modo);
+		break;
+	case 2:
+		prepararCalculoVF(modo);
+		break;
+	case 3:
+		prepararCalculoJuros(modo);
+		break;
+	case 4:
+		prepararCalculoTaxa(modo);
+		break;
+	case 5:
+		prepararCalculoTempo(modo);
+		break;
+	case 6:
+		prepararConversaoTaxa(modo);
+		break;
+	case 7:
+		prepararCalculoEfetiva();
+		break;
+	default:
+		printf("opção inválida!\n");
+		break;
+	}
+}
+
+void prepararCalculoEfetiva() {
+    double taxaNominal, taxaMensal, acumulado, taxaEfetiva, aux;
+    int meses, modo;
+    printf("Digite [ 1 ] para calcular a Taxa de Juros Efetiva, [ 2 ] para calcular a Taxa de Desconto Comercial: ");
+    scanf("%d", &modo);
+    if(modo == 1){
+        printf("Digite a taxa de juros nominal (em decimal, por exemplo, 5% = 0.05): ");
+        scanf("%lf", &taxaNominal);
+
+        printf("Digite o número de meses: ");
+        scanf("%d", &meses);
+
+        aux = taxaNominal * meses;
+        taxaEfetiva = taxaNominal / (1.0 - aux);
+        taxaEfetiva = taxaEfetiva * 100;
+
+        printf("A taxa de juros efetiva para o período de %d meses é: %.4f\n", meses, taxaEfetiva);
+
+    } else if(modo == 2) {
+        printf("Digite a taxa efetiva (em decimal, por exemplo, 5% = 0.05): ");
+        scanf("%lf", &taxaEfetiva);
+
+        printf("Digite o número de meses: ");
+        scanf("%d", &meses);
+
+        aux = taxaEfetiva * meses;
+
+        taxaNominal = taxaEfetiva / (1 + aux);
+        taxaNominal = taxaNominal * 100;
+
+        printf("A taxa de juros nominal para o período de %d meses é: %.4f\n", meses, taxaNominal);
+    }
+}
+
+
+double pedirValor(char *msg)
+{
+	double valor = 0.0;
+	printf("%s", msg);
+	scanf("%lf", &valor);
+	int c;
+	while ((c = getchar()) != '\n' && c != EOF);
+	return valor;
+}
+
+int escolherModo()
+{
+	printf("\n%s", MODOS);
+	int escolha = pedirValor("");
+	if (escolha == 0)
+		exit(0);
+	return escolha;
+}
+
+int escolherOperacao(int modo)
+{
+	int escolha = 0;
+	do
+	{
+		printf("\n%s", (modo == 1 ? OPERACOES2 : OPERACOES));
+		escolha = pedirValor("");
+		if (escolha == 0)
+			exit(0);
+	} while (escolha == 0 || escolha > (modo == 1 ? 7 : 6));
+	return escolha;
+}
+
+int pedirPeriodo(char *msg)
+{
+	printf("%s \n %s \n\t :: ", msg, PERIODOS);
+	char per = ' ';
+	scanf(" %c", &per);
+	switch (tolower(per))
+	{
+	case 'd':
+		return 1;
+	case 'm':
+		return 30;
+	case 'b':
+		return 60;
+	case 't':
+		return 90;
+	case 'q':
+		return 120;
+	case 's':
+		return 180;
+	case 'a':
+		return 360;
+	default:
+		return 1;
+	}
+}
+
+double calcularValorPresenteSimples(double vf, double i, double n)
+{
+	return vf / (1 + (i * n));
+}
+
+double calcularValorFuturoSimples(double vp, double i, double n)
+{
+	return vp * (1 + (i * n));
+}
+
+double calcularTaxaSimples(double vf, double vp, double n)
+{
+	return ((vf / vp) - 1) / n;
+}
+
+double calcularTempoSimples(double vf, double vp, double i)
+{
+	return ((vf / vp) - 1.0) / i;
+}
+
+double calcularJurosSimples(double vp, double i, double n)
+{
+	return vp * i * n;
+}
+
+double converterTaxaSimples(double i, int periodoOrigem, int periodoDestino)
+{
+	return i * periodoDestino / periodoOrigem;
+}
+
+// Formulas para Juros Compostos
+double calcularValorPresenteComposto(double vf, double i, double n)
+{
+	return vf / pow(1 + i, n);
+}
+
+double calcularValorFuturoComposto(double vp, double i, double n)
+{
+	return vp * pow(1 + i, n);
+}
+
+double calcularJurosCompostos(double vp, double i, double n)
+{
+	return vp * (pow(1 + i, n) - 1);
+}
+
+double calcularTaxaComposta(double vf, double vp, double n)
+{
+	return pow((vf / vp), (1 / n)) - 1;
+}
+
+double calcularTempoComposto(double vf, double vp, double i)
+{
+	return log(vf / vp) / log(1.0 + i);
+}
+
+double converterTaxaComposta(double i, int periodoOrigem, int periodoDestino)
+{
+	if (periodoDestino > periodoOrigem)
+		return pow(1 + i, (periodoDestino / periodoOrigem)) - 1;
+	else
+		return pow(1 + i, (1.0 / (periodoOrigem / periodoDestino))) - 1;
+}
+
+// Execução dos calculos
+void prepararCalculoVP(int modo)
+{
+	double vf = pedirValor(MSG_VF);
+	double i = pedirValor(MSG_I) / 100;
+	double n = pedirValor(MSG_N);
+	double resultado;
+	if (modo == 1)
+		resultado = calcularValorPresenteSimples(vf, i, n);
+	else
+		resultado = calcularValorPresenteComposto(vf, i, n);
+
+	printf(MODELO_RES, "Valor Presente", resultado);
+}
+
+void prepararCalculoVF(int modo)
+{
+	double vp = pedirValor(MSG_VP);
+	double i = pedirValor(MSG_I) / 100;
+	double n = pedirValor(MSG_N);
+	double resultado;
+	if (modo == 1)
+		resultado = calcularValorFuturoSimples(vp, i, n);
+	else
+		resultado = calcularValorFuturoComposto(vp, i, n);
+
+	printf(MODELO_RES, "Valor Futuro", resultado);
+}
+
+void prepararCalculoJuros(int modo)
+{
+	double vp = pedirValor(MSG_VP);
+	double i = pedirValor(MSG_I) / 100;
+	double n = pedirValor(MSG_N);
+	double resultado;
+	if (modo == 1)
+		resultado = calcularJurosSimples(vp, i, n);
+	else
+		resultado = calcularJurosCompostos(vp, i, n);
+
+	printf(MODELO_RES, "Juros", resultado);
+}
+
+void prepararCalculoTaxa(int modo)
+{
+	double vp = pedirValor(MSG_VP);
+	double vf = pedirValor(MSG_VF);
+	double n = pedirValor(MSG_N);
+	double resultado;
+	if (modo == 1)
+		resultado = calcularTaxaSimples(vf, vp, n);
+	else
+		resultado = calcularTaxaComposta(vf, vp, n);
+
+
+	printf("\t\033[1m:: Taxa de juros simples : %.2f%%  \033[0m", resultado * 100);
+}
+
+void prepararCalculoTempo(int modo)
+{
+	double vp = pedirValor(MSG_VP);
+	double vf = pedirValor(MSG_VF);
+	double i = pedirValor(MSG_I) / 100;
+	double resultado;
+	if (modo == 1)
+		resultado = calcularTempoSimples(vf, vp, i);
+	else
+		resultado = calcularTempoComposto(vf, vp, i);
+
+	printf("\t\033[1m:: Tempo : %.f  \033[0m", resultado);
+}
+
+void prepararConversaoTaxa(int modo)
+{
+	double i = pedirValor(MSG_I);
+	int orig = pedirPeriodo("Digite o periodo atual: ");
+	int dest = pedirPeriodo("Digite o periodo desejado: ");
+	double novaTaxa;
+	if (modo == 1)
+		novaTaxa = converterTaxaSimples(i / 100, orig, dest);
+	else
+		novaTaxa = converterTaxaComposta(i / 100, orig, dest);
+
+	printf("\n\t\033[1m :: %'.5f%% ao %s é equivalente a %'.5f%% ao %s \033[0m", i, PERIODOS_NOME[orig / 30], novaTaxa * 100, PERIODOS_NOME[dest / 30]);
+}

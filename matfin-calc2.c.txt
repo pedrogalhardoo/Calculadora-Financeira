@@ -1,0 +1,319 @@
+﻿#include <stdlib.h>
+#include <string.h>
+#include <locale.h>
+#include <stdio.h>
+#include <math.h>
+// Autores: Carlos Henrique e Pedro Galhardo
+// Desenvolvido para matéria de Matemática Financeira do período 2023/1 da UFU - Monte Carmelo
+
+// Mensagens para o menu
+#define	MODOS_PRINC		 "Escolha uma opção: \n [ 1 ] Amortização \n [ 2 ] Calculo VPL \n : 0 : Sair \n ::>  "
+#define	MODOS_AMT	 	 "Escolha um modo de amortização: \n [ 1 ] SAC || [ 2 ] SAF || [ 3 ] SAA \n ::>  "
+#define	CARENCIA_SAC	 "\tEscolha o tipo de carência: \n\t [ 1 ] Juros durante a carência \n\t [ 2 ] Juros capitalizados pagos na primeira prestação \n\t [ 3 ] Juros capitalizados e somados ao saldo devedor \n\t >  "
+#define	CARENCIA_SAF	 "\tEscolha o tipo de carência: \n\t [ 1 ] Juros durante a carência \n\t [ 2 ] Juros capitalizados e somados ao saldo devedor \n\t >  "
+
+// Mensagens para o calculo de amortização
+#define MSG_PV			 "Digite a Valor Inicial (VP) R$: "
+#define MSG_I			 "Digite a Taxa (i) em %: "
+#define MSG_N			 "Digite o Tempo total (n): "
+#define MSG_C			 "Digite o período de carência (0 para calcular sem carencia): "
+
+// Mensagens para o calculo VPL
+#define MSG_VPL_PV		 "Digite o investimento inicial: R$ "
+#define MSG_VPL_I		 "Digite a taxa de custo do capital (em %): "
+#define MSG_VPL_FC		 "\n |:: %d fluxos de caixa registrados |"
+#define MSG_VPL_OP		 "\n\tEscolha uma opção: \n\t [ 1 ] Adicionar fluxo de caixa \n\t < 2 > Calcular VPL \n\t ::> "
+#define MSG_VPL_VAL		 "\tValor: R$ "
+#define MSG_VPL_PER		 "\tNumero de períodos: "
+#define MSG_VPL_RES		 "\tResidual: R$ "
+#define MODELO_VPL_TI	 "\nPeriodo | Fluxo de caixa \t| Residual \t|"
+#define MODELO_VPL_LN	 "\n %d \t| R$ %'.2f \t\t| R$ %'.2f \t|"
+
+// Numero maximo de periodos de fluxo de caixa para o calculo VPL
+#define VPL_MAX 20
+
+// Padrões de mensagem para usar ao construir as linhas da tabela
+#define MODELO_TITULO	 "\n Período\t| Saldo Devedor\t\t| Amortização\t\t|  Juros \t\t| Prestação\t\t| "
+#define MODELO_LINHAS	 "\n %d \t\t| R$ %.2f\t\t| R$ %.2f\t\t| R$ %.2f\t\t| R$ %.2f\t\t| "
+#define MODELO_RESULTADO "\n Total \t\t| R$  ----  \t\t| R$ %'.2f\t\t| R$ %'.2f\t\t| R$ %'.2f\t\t|\n\n"
+
+int		escolherModo(char *msg);
+void	menu();
+void	prepararAmort();
+void	calcularVPL();
+void	SAC_prepararCalculo();
+void	SAF_prepararCalculo();
+void	SAA_prepararCalculo();
+void	printTituloTabela(double vp, int carencia);
+void	SAC_construirTabela(double valorInicial, double saldoDevedor, double taxa, int periodo, int carencia, double jurosIniciais);
+void	SAF_construirTabela(double valorInicial, double saldoDevedor, double taxa, int periodo, int carencia, double jurosIniciais);
+double	mostrarCarencia(double valorInicial, int periodo, double taxa, int tipo);
+double	pedirValor(char *msg);
+
+int main()
+{
+	setlocale(LC_NUMERIC, "pt_BR");
+	menu();
+	return 0;
+}
+
+void menu()
+{
+	int modo = -1;
+	while (modo != 0)
+	{
+		printf("\n:: Calculadora Financeira ::\n");
+		modo = escolherModo(MODOS_PRINC);
+		switch (modo)
+		{
+		case 1:
+			prepararAmort();
+			break;
+		case 2:
+			calcularVPL();
+			break;
+		case 0:
+			exit(0);
+		default:
+			printf("opção inválida!\n");
+			break;
+		}
+	}
+}
+
+int escolherModo(char *msg)
+{
+	int escolha = 0;
+	printf("\n%s", msg);
+	scanf("%d", &escolha);
+	if (escolha == 0)
+		exit(0);
+	return escolha;
+}
+
+double pedirValor(char *msg)
+{
+	double valor = 0.0;
+	printf("%s", msg);
+	scanf("%lf", &valor);
+	int c;
+	while ((c = getchar()) != '\n' && c != EOF);
+	return valor;
+}
+
+void prepararAmort()
+{
+	int modo = escolherModo(MODOS_AMT);
+	switch (modo)
+	{
+	case 1:
+		SAC_prepararCalculo();
+		break;
+	case 2:
+		SAF_prepararCalculo();
+		break;
+	case 3:
+		SAA_prepararCalculo();
+		break;
+	default:
+		printf("opção inválida!\n");
+		break;
+	}
+}
+
+void printTituloTabela(double vp, int carencia)
+{
+	if (carencia != 0)
+		printf("\033[%dA", carencia + 2);
+	printf(MODELO_TITULO);
+	printf(MODELO_LINHAS, 0, vp, 0.0, 0.0, 0.0);
+	if (carencia != 0)
+		printf("\033[%dB", carencia);
+}
+
+double mostrarCarencia(double valorInicial, int periodo, double taxa, int tipo)
+{
+	printf("\n");
+	double saldoCarencia = valorInicial;
+	for (int i = 1; i <= periodo; i++)
+	{
+		double jurosAtuais = (tipo == 1 ? saldoCarencia * taxa : 0);
+		saldoCarencia += (tipo != 1 ? (saldoCarencia * taxa) : 0);
+		printf(MODELO_LINHAS, i, saldoCarencia, 0.0, jurosAtuais, (tipo == 1 ? jurosAtuais : 0.0));
+	}
+	return saldoCarencia;
+}
+
+void SAC_construirTabela(double valorInicial, double saldoDevedor, double taxa, int periodo, int carencia, double jurosIniciais)
+{
+	double amortizacao = ((saldoDevedor != valorInicial && jurosIniciais == 0) ? saldoDevedor : valorInicial) / periodo;
+	double juros = 0.0;
+	double totalJuros = 0.0;
+	double prestacao = 0.0;
+	double totalPrest = 0.0;
+	double saldoDevedorAtual = saldoDevedor;
+	double jurosPrimeiraPrestacao = jurosIniciais;
+
+	for (int t = carencia + 1; t <= (periodo + carencia); t++)
+	{
+		juros = saldoDevedorAtual * taxa;
+
+		if (t == carencia + 1)
+		{
+			saldoDevedorAtual = saldoDevedorAtual - amortizacao - jurosPrimeiraPrestacao;
+			juros += jurosPrimeiraPrestacao;
+		}
+		else
+		{
+			saldoDevedorAtual = saldoDevedorAtual - amortizacao;
+		}
+		totalJuros += juros;
+		prestacao = juros + amortizacao;
+		totalPrest += prestacao;
+
+		printf(MODELO_LINHAS, t, saldoDevedorAtual, amortizacao, juros, prestacao);
+	}
+	printf(MODELO_RESULTADO, valorInicial, totalJuros, totalPrest);
+}
+
+void SAC_prepararCalculo()
+{
+	double valorInicial = pedirValor(MSG_PV);
+	double taxa = pedirValor(MSG_I) / 100.0;
+	int periodo = pedirValor(MSG_N);
+	int carencia = pedirValor(MSG_C);
+
+	double saldoDevedor = valorInicial;
+	double jurosIniciais = 0.0;
+
+	int tipo = 0;
+	if (carencia > 0)
+	{
+		tipo = pedirValor(CARENCIA_SAC);
+		double novoSaldoDevedor = mostrarCarencia(valorInicial, carencia, taxa, tipo);
+		if (tipo != 1)
+		{
+			saldoDevedor = novoSaldoDevedor;
+			if (tipo == 2)
+				jurosIniciais = (saldoDevedor - valorInicial);
+		}
+	}
+	printTituloTabela(valorInicial, carencia);
+	SAC_construirTabela(valorInicial, saldoDevedor, taxa, periodo, carencia, jurosIniciais);
+}
+
+void SAF_construirTabela(double valorInicial, double saldoDevedor, double taxa, int periodo, int carencia, double jurosIniciais)
+{
+	double calcTaxa = pow(1 + taxa, periodo);
+	double juros = 0.0;
+	double totalJuros = 0.0;
+
+	double prestacao = saldoDevedor * ((taxa * calcTaxa) / (calcTaxa - 1));
+	double totalPrest = 0.0;
+
+	double amortizacao = 0.0;
+
+	double saldoDevedorAtual = saldoDevedor;
+	double jurosPrimeiraPrestacao = jurosIniciais;
+	for (int t = carencia + 1; t <= (periodo + carencia); t++)
+	{
+		juros = saldoDevedorAtual * taxa;
+		amortizacao = prestacao - juros;
+		if (t == carencia + 1)
+		{
+			saldoDevedorAtual = saldoDevedorAtual - amortizacao - jurosPrimeiraPrestacao;
+			juros += jurosPrimeiraPrestacao;
+		}
+		else
+		{
+			saldoDevedorAtual = saldoDevedorAtual - amortizacao;
+		}
+		totalJuros += juros;
+		totalPrest += prestacao;
+		printf(MODELO_LINHAS, t, saldoDevedorAtual, amortizacao, juros, prestacao);
+	}
+	printf(MODELO_RESULTADO, valorInicial, totalJuros, totalPrest);
+}
+
+void SAF_prepararCalculo()
+{
+	double valorInicial = pedirValor(MSG_PV);
+	double taxa = pedirValor(MSG_I) / 100.0;
+	int periodo = pedirValor(MSG_N);
+	int carencia = pedirValor(MSG_C);
+
+	double saldoDevedor = valorInicial;
+	double jurosIniciais = 0.0;
+
+	int tipo = 0;
+	if (carencia > 0)
+	{
+		tipo = pedirValor(CARENCIA_SAF);
+		double novoSaldoDevedor = mostrarCarencia(valorInicial, carencia, taxa, tipo);
+		if (tipo == 2)
+			saldoDevedor = novoSaldoDevedor;
+	}
+	printTituloTabela(valorInicial, carencia);
+	SAF_construirTabela(valorInicial, saldoDevedor, taxa, periodo, carencia, jurosIniciais);
+}
+
+void SAA_prepararCalculo()
+{
+	double valorInicial = pedirValor(MSG_PV);
+	double taxa = pedirValor(MSG_I) / 100.0;
+	int periodo = pedirValor(MSG_N);
+
+	double saldoDevedor = valorInicial;
+	double juros = valorInicial * taxa;
+
+	printf(MODELO_TITULO);
+	printf(MODELO_LINHAS, 0, 0.0, 0.0, 0.0, 0.0);
+	for (int t = 1; t <= periodo; t++)
+	{
+		printf(MODELO_LINHAS, t, valorInicial, t == periodo ? valorInicial : 0.00, juros, t == periodo ? (juros + valorInicial) : juros);
+	}
+
+	double jurosTotais = juros * periodo;
+	printf(MODELO_RESULTADO, valorInicial, jurosTotais, valorInicial + jurosTotais);
+}
+
+void calcularVPL()
+{
+	double valorInicial = pedirValor(MSG_VPL_PV);
+	double taxa = pedirValor(MSG_VPL_I) / 100.0;
+
+	double registroDeFluxos[VPL_MAX];
+	double registroDeResiduais[VPL_MAX];
+
+	int op = 0;
+	int periodo = 0;
+	while (op != 2 && periodo < VPL_MAX)
+	{
+		printf(MSG_VPL_FC, periodo);
+		op = pedirValor(MSG_VPL_OP);
+		if (op == 1)
+		{
+			double valor = pedirValor(MSG_VPL_VAL);
+			double residual = pedirValor(MSG_VPL_RES);
+			int n = pedirValor(MSG_VPL_PER);
+			for (size_t i = 0; i < n; i++)
+			{
+				registroDeFluxos[i + periodo] = valor;
+				registroDeResiduais[i + periodo] = residual;
+			}
+			periodo += n;
+		}
+	}
+
+	printf(MODELO_VPL_TI);
+	double vpl = (-valorInicial);
+	for (int t = 0; t < periodo; t++)
+	{
+		double taxaJ = pow(1 + taxa, t + 1);
+
+		printf(MODELO_VPL_LN, (t + 1), registroDeFluxos[t], registroDeResiduais[t]);
+		vpl += (registroDeFluxos[t] / taxaJ) + (registroDeResiduais[t] / taxaJ);
+	}
+	printf("\n VPL = R$ %.2f", vpl);
+	printf("\n\n \033[1;37m VPL = R$ %'.2f \033[0m \n", vpl);
+}
